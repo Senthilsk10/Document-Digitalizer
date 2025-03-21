@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_restful import Api, Resource
 from flask_cors import CORS
 import os
@@ -8,24 +8,32 @@ from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
 from tasks import make_celery
+from pymongo import MongoClient
+from bson.objectid import ObjectId
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 CORS(app)  
 api = Api(app)
 celery = make_celery(app)
 
 # Configuration
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'heic', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 
+# MongoDB configuration
+client = MongoClient('mongodb://senthil3226w:<p>@ac-mzevuqh-shard-00-00.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-01.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-02.xfxlssz.mongodb.net:27017/?replicaSet=atlas-ca7sk5-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0')
+db = client['Document-Info']
+documents_collection = db['Meta']
+
 # Create upload directory if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-# Create a documents directory to store document metadata
+# Create a documents directory to store document files
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'documents'), exist_ok=True)
 
 def allowed_file(filename):
@@ -53,13 +61,13 @@ class DocumentUpload(Resource):
             document_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'documents', document_id)
             os.makedirs(document_dir, exist_ok=True)
             
-            # Save document metadata
+            # Initialize document metadata
             document_metadata = {
-                'id': document_id,
+                'document_id': document_id,
                 'name': document_name,
                 'pageCount': page_count,
                 'isMultiPage': is_multi_page,
-                'uploadDate': datetime.now().isoformat(),
+                'uploadDate': datetime.now(),
                 'pages': []
             }
             
@@ -90,23 +98,27 @@ class DocumentUpload(Resource):
                     file_path = os.path.join(document_dir, new_filename)
                     page_file.save(file_path)
                     
+                    # Create relative path for storing in MongoDB
+                    relative_path = f"/static/uploads/documents/{document_id}/{new_filename}"
+                    
                     # Add page info to document metadata
                     document_metadata['pages'].append({
                         'id': page_id,
                         'pageNumber': page_number,
                         'filename': new_filename,
                         'originalFilename': original_filename,
+                        'filePath': relative_path,
                         'timestamp': page_metadata.get('timestamp', datetime.now().isoformat()),
                         'source': page_metadata.get('source', 'unknown')
                     })
                     
                     logger.info(f"Saved page {page_number} to {file_path}")
             
-            #call call_gemini() here and start process processing documents
+            # Store document metadata in MongoDB
+            result = documents_collection.insert_one(document_metadata)
             
-            # Save document metadata
-            with open(os.path.join(document_dir, 'metadata.json'), 'w') as f:
-                json.dump(document_metadata, f, indent=2)
+            # Queue the Gemini processing task
+            # call_gemini.delay(document_id)
             
             response = {
                 'success': True,
@@ -125,21 +137,22 @@ class DocumentUpload(Resource):
 class DocumentList(Resource):
     def get(self):
         try:
-            documents_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'documents')
             documents = []
             
-            for document_id in os.listdir(documents_dir):
-                metadata_path = os.path.join(documents_dir, document_id, 'metadata.json')
-                if os.path.exists(metadata_path):
-                    with open(metadata_path, 'r') as f:
-                        metadata = json.load(f)
-                        documents.append({
-                            'id': metadata['id'],
-                            'name': metadata['name'],
-                            'pageCount': metadata['pageCount'],
-                            'isMultiPage': metadata['isMultiPage'],
-                            'uploadDate': metadata['uploadDate']
-                        })
+            # Retrieve documents from MongoDB
+            cursor = documents_collection.find({}, {
+                'document_id': 1, 
+                'name': 1, 
+                'pageCount': 1, 
+                'isMultiPage': 1, 
+                'uploadDate': 1
+            })
+            
+            for doc in cursor:
+                doc['_id'] = str(doc['_id'])  # Convert ObjectId to string
+                doc['id'] = doc.pop('document_id')  # Rename document_id to id for consistency
+                doc['uploadDate']= doc['uploadDate'].strftime("%d-%m-%Y")
+                documents.append(doc)
             
             return {'documents': documents}, 200
         except Exception as e:
@@ -149,46 +162,74 @@ class DocumentList(Resource):
 class DocumentDetail(Resource):
     def get(self, document_id):
         try:
-            document_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'documents', document_id)
-            metadata_path = os.path.join(document_dir, 'metadata.json')
+            # Find document in MongoDB
+            document = documents_collection.find_one({'document_id': document_id})
             
-            if not os.path.exists(metadata_path):
+            if not document:
                 return {'error': 'Document not found'}, 404
                 
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
-                
-            return metadata, 200
+            # Convert ObjectId to string for JSON serialization
+            document['_id'] = str(document['_id'])
+            # print(type(document['uploadDate']))
+            document['uploadDate']= document['uploadDate'].strftime("%d-%m-%Y")
+            return document, 200
         except Exception as e:
             logger.error(f"Error retrieving document details: {str(e)}")
             return {'error': str(e)}, 500
     
     def delete(self, document_id):
         try:
+            # Find and delete document from MongoDB
+            result = documents_collection.delete_one({'document_id': document_id})
+            
+            if result.deleted_count == 0:
+                return {'error': 'Document not found'}, 404
+            
+            # Delete document files
             document_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'documents', document_id)
             
-            if not os.path.exists(document_dir):
-                return {'error': 'Document not found'}, 404
+            if os.path.exists(document_dir):
+                # Delete all files in the document directory
+                for file in os.listdir(document_dir):
+                    file_path = os.path.join(document_dir, file)
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
                 
-            # Delete all files in the document directory
-            for file in os.listdir(document_dir):
-                file_path = os.path.join(document_dir, file)
-                if os.path.isfile(file_path):
-                    os.unlink(file_path)
-            
-            # Remove the directory
-            os.rmdir(document_dir)
+                # Remove the directory
+                os.rmdir(document_dir)
             
             return {'success': True, 'message': f'Document {document_id} deleted'}, 200
         except Exception as e:
             logger.error(f"Error deleting document: {str(e)}")
             return {'error': str(e)}, 500
 
+# Route to serve static files
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(app.static_folder, filename)
 
 @celery.task
-def call_gemini():
-    # to be implemented
-
+def call_gemini(document_id):
+    try:
+        logger.info(f"Processing document with Gemini: {document_id}")
+        # Find document in MongoDB
+        document = documents_collection.find_one({'document_id': document_id})
+        
+        if not document:
+            logger.error(f"Document not found: {document_id}")
+            return
+        
+        # TODO: Implement Gemini processing logic here
+        
+        # Update document with processing results
+        documents_collection.update_one(
+            {'document_id': document_id},
+            {'$set': {'processed': True, 'processedDate': datetime.now()}}
+        )
+        
+        logger.info(f"Successfully processed document: {document_id}")
+    except Exception as e:
+        logger.error(f"Error in Gemini processing task: {str(e)}")
 
 # Add resources to API
 api.add_resource(DocumentUpload, '/api/upload-document')
