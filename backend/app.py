@@ -10,7 +10,7 @@ from datetime import datetime
 # from tasks import make_celery
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from gemini import generate,client
+from gemini import generate,gemini_client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -229,21 +229,29 @@ def call_gemini(document_id):
         if not document:
             logger.error(f"Document not found: {document_id}")
             return
-        
-        # TODO: Implement Gemini processing logic here
         update_list = []
         pages = document['pages']
-        for page in pages:
-            path = os.path.abspath(page['filePath'])
-            result = (generate(client,path[1::]))
-            current_timestamp = datetime.now().isoformat()
-            update_list.append({**page,"processed":True,"processedAt":current_timestamp,"extracted":result})
-        print(update_list)
-        # Update document with processing results
-        # documents_collection.update_one(
-        #     {'document_id': document_id},
-        #     {'$set': {'processed': True, 'processedDate': datetime.now()}}
-        # )
+        if not document['isMultiPage']:
+            for page in pages:
+                path = os.path.abspath(page['filePath'])
+                result = (generate(gemini_client,path[1::]))
+                current_timestamp = datetime.now().isoformat()
+                update_list.append({**page,"processed":True,"processedAt":current_timestamp,"extracted":result})
+                documents_collection.update_one(
+                    {'document_id': document_id},
+                    {'$set': {'pages':update_list}}
+                )
+        else:
+            paths = []
+            for page in pages:
+                paths.append(page['filePath'][1::])
+            result = (generate(gemini_client,paths))
+            update_list.append({"processed":True,"processedAt":datetime.now().isoformat(),"extracted":result})
+            documents_collection.update_one(
+                {'document_id': document_id},
+                {'$set': {'extracted':update_list}}
+            )
+        
         
         logger.info(f"Successfully processed document: {document_id}")
     except Exception as e:

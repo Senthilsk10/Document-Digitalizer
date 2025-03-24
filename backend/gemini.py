@@ -4,7 +4,27 @@ import json
 from google import genai
 from google.genai import types
 
-def generate(client, img_path):
+def generate(client, img_path,multi_page=False):
+    txt = """You need to extract Information from the Uploaded Document as follows:
+
+        {
+        \"certificate\": \"Birth or Death Certificate\",
+        \"name\": \"Extracted Name\",
+        \"sex\": \"Male/Female/Other\",
+        \"date_of_birth\": \"DD/MM/YYYY\",
+        \"place_of_birth\": \"Extracted Place\",
+        \"address\": \"Address data available if any\",
+        \"father_name\": \"Extracted Father’s Name\",
+        \"mother_name\": \"Extracted Mother’s Name\",
+        \"registration_number\": \"Extracted Registration Number\",
+        \"date_of_registration\": \"DD/MM/YYYY\",
+        \"office_seal_present\": true,
+        \"date_of_issue\": \"DD/MM/YYYY\",
+        \"date_of_death\": \"DD/MM/YYYY\" // If death certificate
+        }
+    """
+    if multi_page == True:
+         txt = txt.replace('from the Uploaded Document'," and return single json response for all uploaded documents and consider it as single document.")
     # Ensure img_path is always a list for uniform processing
     if not isinstance(img_path, list):
         img_path = [img_path]
@@ -38,24 +58,7 @@ def generate(client, img_path):
         max_output_tokens=8192,
         response_mime_type="application/json",
         system_instruction=[
-            types.Part.from_text(text="""You need to extract Information from the Uploaded Document as follows:
-
-{
- \"certificate\": \"Birth or Death Certificate\",
- \"name\": \"Extracted Name\",
- \"sex\": \"Male/Female/Other\",
- \"date_of_birth\": \"DD/MM/YYYY\",
- \"place_of_birth\": \"Extracted Place\",
- \"address\": \"Address data available if any\",
- \"father_name\": \"Extracted Father’s Name\",
- \"mother_name\": \"Extracted Mother’s Name\",
- \"registration_number\": \"Extracted Registration Number\",
- \"date_of_registration\": \"DD/MM/YYYY\",
- \"office_seal_present\": true,
- \"date_of_issue\": \"DD/MM/YYYY\",
- \"date_of_death\": \"DD/MM/YYYY\" // If death certificate
-}
-"""),
+            types.Part.from_text(text=txt),
         ],
     )
 
@@ -69,7 +72,7 @@ def generate(client, img_path):
     return json.loads(resp.candidates[0].content.parts[0].text)
 
 # Example usage:
-client = genai.Client(api_key="AIzaSyDXy3tst9-99XNuQ7b9F6pQj1OLzY0i0kA")
+gemini_client = genai.Client(api_key="AIzaSyDXy3tst9-99XNuQ7b9F6pQj1OLzY0i0kA")
 
 # response1 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/8969567c-1381-42c8-9398-7b159692c2c5/page_1_352b932c-edd7-44c6-a146-586d3c88d205.jpg")
 # response2 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/c872d19e-fab8-4e5e-b76a-ee6df1fb1c22/page_1_6fb29cb9-7dca-4b13-95c6-61d51674ffb6.jpg")
