@@ -7,9 +7,10 @@ import uuid
 from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
-from tasks import make_celery
+# from tasks import make_celery
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from gemini import generate,client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +19,17 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='static')
 CORS(app)  
 api = Api(app)
-celery = make_celery(app)
+# from celery import Celery
+# # from main import app
+# def make_celery(app):
+#     celery = Celery(
+#         app.import_name,
+#         backend='redis://localhost:6379/0',  # Result backend
+#         broker='redis://localhost:6379/0'   # Broker URL
+#     )
+#     celery.conf.update(app.config)
+#     return celery
+# celery = make_celery(app)
 
 # Configuration
 UPLOAD_FOLDER = 'static/uploads'
@@ -27,7 +38,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 
 # MongoDB configuration
-client = MongoClient('mongodb://senthil3226w:<p>@ac-mzevuqh-shard-00-00.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-01.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-02.xfxlssz.mongodb.net:27017/?replicaSet=atlas-ca7sk5-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0')
+client = MongoClient('mongodb://senthil3226w:senthil3226w@ac-mzevuqh-shard-00-00.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-01.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-02.xfxlssz.mongodb.net:27017/?replicaSet=atlas-ca7sk5-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0')
 db = client['Document-Info']
 documents_collection = db['Meta']
 
@@ -118,7 +129,7 @@ class DocumentUpload(Resource):
             result = documents_collection.insert_one(document_metadata)
             
             # Queue the Gemini processing task
-            # call_gemini.delay(document_id)
+            call_gemini(document_id)
             
             response = {
                 'success': True,
@@ -208,7 +219,7 @@ class DocumentDetail(Resource):
 def serve_static(filename):
     return send_from_directory(app.static_folder, filename)
 
-@celery.task
+# @celery.task(name="tasks.call_gemini") 
 def call_gemini(document_id):
     try:
         logger.info(f"Processing document with Gemini: {document_id}")
@@ -220,12 +231,19 @@ def call_gemini(document_id):
             return
         
         # TODO: Implement Gemini processing logic here
-        
+        update_list = []
+        pages = document['pages']
+        for page in pages:
+            path = os.path.abspath(page['filePath'])
+            result = (generate(client,path[1::]))
+            current_timestamp = datetime.now().isoformat()
+            update_list.append({**page,"processed":True,"processedAt":current_timestamp,"extracted":result})
+        print(update_list)
         # Update document with processing results
-        documents_collection.update_one(
-            {'document_id': document_id},
-            {'$set': {'processed': True, 'processedDate': datetime.now()}}
-        )
+        # documents_collection.update_one(
+        #     {'document_id': document_id},
+        #     {'$set': {'processed': True, 'processedDate': datetime.now()}}
+        # )
         
         logger.info(f"Successfully processed document: {document_id}")
     except Exception as e:
@@ -238,3 +256,4 @@ api.add_resource(DocumentDetail, '/api/documents/<string:document_id>')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+    # call_gemini("a718a5e2-438c-4ea0-a46b-c665c8ee3c3d")

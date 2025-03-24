@@ -101,7 +101,7 @@ const DocumentUploader = () => {
 
       // Send to backend API
       const response = await fetch(
-        "https://zxkk943x-5000.inc1.devtunnels.ms/api/upload-document",
+        "https://ubiquitous-spork-9pwjjqv9jjj3x67x-5000.app.github.dev/api/upload-document",
         {
           method: "POST",
           body: formData,

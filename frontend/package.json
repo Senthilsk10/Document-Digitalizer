@@ -11,12 +11,6 @@
     "lucide-react": "0.482.0",
     "tailwindcss": "4.0.14"
   },
-  "devDependencies": {
-    "@types/react": "19.0.0",
-    "@types/react-dom": "19.0.0",
-    "loader-utils": "3.2.1",
-    "typescript": "5.7.2"
-  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

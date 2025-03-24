@@ -1,148 +1,79 @@
-import requests
+import base64
 import os
 import json
+from google import genai
+from google.genai import types
 
-def extract_certificate_info(api_key, image_path):
-    """
-    Upload an image to Google Gemini API and extract certificate information.
-    
-    Args:
-        api_key (str): Your Gemini API key
-        image_path (str): Path to the image file (PNG, JPEG, etc.)
-    
-    Returns:
-        dict: Extracted certificate information in JSON format
-    """
-    # Get file information
-    file_size = os.path.getsize(image_path)
-    file_name = os.path.basename(image_path)
-    
-    # Determine MIME type based on file extension
-    mime_type = "image/png"  # Default
-    if file_name.lower().endswith(('.jpg', '.jpeg')):
-        mime_type = "image/jpeg"
-    elif file_name.lower().endswith('.pdf'):
-        mime_type = "application/pdf"
-    
-    # Read file content
-    with open(image_path, 'rb') as file:
-        file_content = file.read()
-    
-    # Upload file
-    upload_url = f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}"
-    
-    # Prepare headers for upload
-    upload_headers = {
-        "X-Goog-Upload-Command": "start, upload, finalize",
-        "X-Goog-Upload-Header-Content-Length": str(file_size),
-        "X-Goog-Upload-Header-Content-Type": mime_type
-    }
-    
-    # Make the upload request with binary data
-    upload_response = requests.post(
-        upload_url,
-        headers=upload_headers,
-        data=file_content
-    )
-    
-    # Extract file URI from response
-    if upload_response.status_code != 200:
-        raise Exception(f"File upload failed: {upload_response.text}")
-    
-    try:
-        file_uri = upload_response.json().get("file").get("uri")
-        if not file_uri:
-            raise ValueError("URI not found in response")
-    except (json.JSONDecodeError, ValueError) as e:
-        # Print the full response for debugging
-        print(f"Response content: {upload_response.text}")
-        raise Exception(f"Failed to parse file URI: {str(e)}")
-    
-    # Prepare the generation request
-    generation_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-    
-    system_instruction = """
-    You need to extract Information from the Uploaded Document as follows
+def generate(client, img_path):
+    # Ensure img_path is always a list for uniform processing
+    if not isinstance(img_path, list):
+        img_path = [img_path]
 
-    {
-      "certificate":"Birth or Death Certificate",
-      "name": "Extracted Name",
-      "sex": "Male/Female/Other",
-      "date_of_birth": "DD/MM/YYYY",
-      "place_of_birth": "Extracted Place",
-      "address":"Address data available if any",
-      "father_name": "Extracted Father's Name",
-      "mother_name": "Extracted Mother's Name",
-      "registration_number": "Extracted Registration Number",
-      "date_of_registration": "DD/MM/YYYY",
-      "office_seal_present": true,
-      "date_of_issue": "DD/MM/YYYY",
-      "date_of_death": "DD/MM/YYYY"
-    }
-    """
-    
-    generation_payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "fileData": {
-                            "fileUri": file_uri,
-                            "mimeType": mime_type
-                        }
-                    }
-                ]
-            },
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "text": "Extract information from this certificate"
-                    }
-                ]
-            }
+    # Upload all files
+    files = [client.files.upload(file=path) for path in img_path]
+
+    # Create content parts for all files
+    file_parts = [
+        types.Part.from_uri(
+            file_uri=file.uri,
+            mime_type=file.mime_type,
+        )
+        for file in files
+    ]
+
+    # Add the text part
+    file_parts.append(types.Part.from_text(text="INSERT_INPUT_HERE"))
+
+    contents = [
+        types.Content(
+            role="user",
+            parts=file_parts,
+        ),
+    ]
+
+    generate_content_config = types.GenerateContentConfig(
+        temperature=1,
+        top_p=0.95,
+        top_k=40,
+        max_output_tokens=8192,
+        response_mime_type="application/json",
+        system_instruction=[
+            types.Part.from_text(text="""You need to extract Information from the Uploaded Document as follows:
+
+{
+ \"certificate\": \"Birth or Death Certificate\",
+ \"name\": \"Extracted Name\",
+ \"sex\": \"Male/Female/Other\",
+ \"date_of_birth\": \"DD/MM/YYYY\",
+ \"place_of_birth\": \"Extracted Place\",
+ \"address\": \"Address data available if any\",
+ \"father_name\": \"Extracted Father’s Name\",
+ \"mother_name\": \"Extracted Mother’s Name\",
+ \"registration_number\": \"Extracted Registration Number\",
+ \"date_of_registration\": \"DD/MM/YYYY\",
+ \"office_seal_present\": true,
+ \"date_of_issue\": \"DD/MM/YYYY\",
+ \"date_of_death\": \"DD/MM/YYYY\" // If death certificate
+}
+"""),
         ],
-        "systemInstruction": {
-            "role": "user",
-            "parts": [
-                {
-                    "text": system_instruction
-                }
-            ]
-        },
-        "generationConfig": {
-            "temperature": 1,
-            "topK": 40,
-            "topP": 0.95,
-            "maxOutputTokens": 8192,
-            "responseMimeType": "application/json"
-        }
-    }
-    
-    generation_headers = {
-        "Content-Type": "application/json"
-    }
-    
-    # Make the generation request
-    generation_response = requests.post(
-        generation_url,
-        headers=generation_headers,
-        json=generation_payload
     )
-    
-    # Process and return the response
-    if generation_response.status_code != 200:
-        raise Exception(f"Generation failed: {generation_response.text}")
-    
-    return generation_response.json()
 
-# Example usage
-if __name__ == "__main__":
-    api_key = "AIzaSyDXy3tst9-"
-    image_path = "/workspaces/Document-Digitalizer/image.jpg"
-    try:
-        result = extract_certificate_info(api_key, image_path)
-        print(json.dumps(result, indent=2))
-    except Exception as e:
-        print(f"Error: {e}")
+    # Ensure the request is independent for each call
+    resp = client.models.generate_content(
+        model="gemini-2.0-flash-lite",
+        contents=contents,
+        config=generate_content_config,
+    )
+
+    return json.loads(resp.candidates[0].content.parts[0].text)
+
+# Example usage:
+client = genai.Client(api_key="AIzaSyDXy3tst9-99XNuQ7b9F6pQj1OLzY0i0kA")
+
+# response1 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/8969567c-1381-42c8-9398-7b159692c2c5/page_1_352b932c-edd7-44c6-a146-586d3c88d205.jpg")
+# response2 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/c872d19e-fab8-4e5e-b76a-ee6df1fb1c22/page_1_6fb29cb9-7dca-4b13-95c6-61d51674ffb6.jpg")
+
+
+# print("Response 1:", response1)
+# print("Response 2:", response2)
