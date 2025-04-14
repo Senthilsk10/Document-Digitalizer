@@ -3,10 +3,8 @@ import os
 import json
 from google import genai
 from google.genai import types
-
 def generate(client, img_path,multi_page=False):
     txt = """You need to extract Information from the Uploaded Document as follows:
-
         {
         \"certificate\": \"Birth or Death Certificate\",
         \"name\": \"Extracted Name\",
@@ -24,14 +22,12 @@ def generate(client, img_path,multi_page=False):
         }
     """
     if multi_page == True:
-         txt = txt.replace('from the Uploaded Document'," and return single json response for all uploaded documents and consider it as single document.")
+        txt = txt.replace('from the Uploaded Document'," and return single json response for all uploaded documents and consider it as single document.")
     # Ensure img_path is always a list for uniform processing
     if not isinstance(img_path, list):
         img_path = [img_path]
-
     # Upload all files
     files = [client.files.upload(file=path) for path in img_path]
-
     # Create content parts for all files
     file_parts = [
         types.Part.from_uri(
@@ -40,17 +36,14 @@ def generate(client, img_path,multi_page=False):
         )
         for file in files
     ]
-
     # Add the text part
     file_parts.append(types.Part.from_text(text="INSERT_INPUT_HERE"))
-
     contents = [
         types.Content(
             role="user",
             parts=file_parts,
         ),
     ]
-
     generate_content_config = types.GenerateContentConfig(
         temperature=1,
         top_p=0.95,
@@ -61,22 +54,16 @@ def generate(client, img_path,multi_page=False):
             types.Part.from_text(text=txt),
         ],
     )
-
     # Ensure the request is independent for each call
     resp = client.models.generate_content(
         model="gemini-2.0-flash-lite",
         contents=contents,
         config=generate_content_config,
     )
-
     return json.loads(resp.candidates[0].content.parts[0].text)
-
 # Example usage:
 gemini_client = genai.Client(api_key="AIzaSyDXy3tst9-99XNuQ7b9F6pQj1OLzY0i0kA")
-
 # response1 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/8969567c-1381-42c8-9398-7b159692c2c5/page_1_352b932c-edd7-44c6-a146-586d3c88d205.jpg")
 # response2 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/c872d19e-fab8-4e5e-b76a-ee6df1fb1c22/page_1_6fb29cb9-7dca-4b13-95c6-61d51674ffb6.jpg")
-
-
 # print("Response 1:", response1)
 # print("Response 2:", response2)

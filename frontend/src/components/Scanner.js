@@ -214,7 +214,7 @@ const DocumentScanner = () => {
   };
 
   return (
-    <div className="flex flex-col items-center w-full max-w-md mx-auto p-4 bg-gray-50 rounded-lg shadow">
+    <div className="flex flex-col items-center w-full max-w-md mx-auto p-2">
       <div className="w-full flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold">Document Scanner</h2>
         <button
