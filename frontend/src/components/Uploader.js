@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { Upload, Check, X, Plus, BookOpen } from "lucide-react";
-
+import AadharContext from "../AadharContext";
+import { useContext } from "react";
 // Simple UUID generator function
 const generateUUID = () => {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
@@ -17,7 +18,7 @@ const DocumentUploader = () => {
   const [error, setError] = useState(null);
   const [documentName, setDocumentName] = useState("");
   const [isMultiPage, setIsMultiPage] = useState(false);
-
+  const { aadhar, setAadhar } = useContext(AadharContext);
   const fileInputRef = useRef(null);
 
   // Document session ID
@@ -77,6 +78,7 @@ const DocumentUploader = () => {
 
       // Add document metadata
       formData.append("documentId", documentId.current);
+      formData.append("aadhar", aadhar);
       formData.append(
         "documentName",
         documentName || `Document-${new Date().toISOString()}`

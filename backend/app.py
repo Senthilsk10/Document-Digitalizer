@@ -58,6 +58,9 @@ class DocumentUpload(Resource):
                 return {'error': 'No pages found in the request'}, 400
             
             # Get document metadata
+            aadhar = request.form.get('aadhar')
+            if not aadhar:
+                return {'error':"no aadhar details sent"}, 500
             document_id = request.form.get('documentId')
             document_name = request.form.get('documentName', f'Document-{datetime.now().isoformat()}')
             page_count = int(request.form.get('pageCount', 0))
@@ -76,6 +79,7 @@ class DocumentUpload(Resource):
             document_metadata = {
                 'document_id': document_id,
                 'name': document_name,
+                'aadhar':aadhar,
                 'pageCount': page_count,
                 'isMultiPage': is_multi_page,
                 'uploadDate': datetime.now(),
@@ -218,6 +222,35 @@ class DocumentDetail(Resource):
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(app.static_folder, filename)
+
+@app.route('/documents', methods=['GET'])
+def get_documents_by_aadhar():
+    aadhar = request.args.get('aadhar')
+    if not aadhar:
+        return jsonify({"error": "Aadhar query parameter is required"}), 400
+
+    documents = documents_collection.find({"aadhar": aadhar}).sort("uploadDate", -1)
+    result = []
+
+    for idx, doc in enumerate(documents, start=1):
+        page = doc.get("pages", [{}])[0]
+        extracted = page.get("extracted", {})
+
+        # If extracted is a list (some entries are), take the first element
+        if isinstance(extracted, list) and len(extracted) > 0:
+            extracted = extracted[0]
+
+        result.append({
+            "id": idx,
+            "name": doc.get("name", "Untitled Document"),
+            "date": doc.get("uploadDate", datetime.utcnow()).strftime("%Y-%m-%d"),
+            "type": extracted.get("certificate", "Unknown"),
+            "status": "Completed" if page.get("processed", False) else "Processing",
+            "extracted": extracted
+        })
+
+    return jsonify(result), 200
+
 
 # @celery.task(name="tasks.call_gemini") 
 def call_gemini(document_id):

@@ -4,14 +4,14 @@ import json
 from google import genai
 from google.genai import types
 def generate(client, img_path,multi_page=False):
-    txt = """You need to extract Information from the Uploaded Document as follows:
+    txt = """You need to extract Information from the Uploaded Document in English and the fields you have to extract is as follows:
         {
         \"certificate\": \"Birth or Death Certificate\",
         \"name\": \"Extracted Name\",
         \"sex\": \"Male/Female/Other\",
         \"date_of_birth\": \"DD/MM/YYYY\",
         \"place_of_birth\": \"Extracted Place\",
-        \"address\": \"Address data available if any\",
+        \"address\": \"Address data\",
         \"father_name\": \"Extracted Father’s Name\",
         \"mother_name\": \"Extracted Mother’s Name\",
         \"registration_number\": \"Extracted Registration Number\",
@@ -20,10 +20,13 @@ def generate(client, img_path,multi_page=False):
         \"date_of_issue\": \"DD/MM/YYYY\",
         \"date_of_death\": \"DD/MM/YYYY\" // If death certificate
         }
+
+        note:The Language of the extraction should be only english don't return in tamil.
     """
     if multi_page == True:
         txt = txt.replace('from the Uploaded Document'," and return single json response for all uploaded documents and consider it as single document.")
     # Ensure img_path is always a list for uniform processing
+    print(txt)
     if not isinstance(img_path, list):
         img_path = [img_path]
     # Upload all files
@@ -37,7 +40,7 @@ def generate(client, img_path,multi_page=False):
         for file in files
     ]
     # Add the text part
-    file_parts.append(types.Part.from_text(text="INSERT_INPUT_HERE"))
+    file_parts.append(types.Part.from_text(text=" "))
     contents = [
         types.Content(
             role="user",
@@ -56,7 +59,7 @@ def generate(client, img_path,multi_page=False):
     )
     # Ensure the request is independent for each call
     resp = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
+        model="gemini-2.0-flash",
         contents=contents,
         config=generate_content_config,
     )
