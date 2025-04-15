@@ -57,7 +57,8 @@ const BirthCertificate = ({
     translateContent();
   }, [language, labels, data, onTranslate]);
 
-  const qrCodeUrl = `https://host/docs/${data.id || "unknown"}`;
+  // Generate QR code URL
+  const qrCodeUrl = `https://host/docs/${data.registration_number || "unknown"}`;
 
   // Function to render text in both languages
   const renderBilingual = (english, regional) => (
@@ -86,8 +87,8 @@ const BirthCertificate = ({
           </div>
           <div className="text-xl font-bold">
             {renderBilingual(
-              translatedLabels.deptTitle?.english || "Department of Municipal Administration and Water Supply",
-              translatedLabels.deptTitle?.regional || "நகராட்சி நிர்வாகம் மற்றும் குடிநீர் வழங்கல் துறை"
+              translatedLabels.deptTitle?.english || "Department of Municipal Administration",
+              translatedLabels.deptTitle?.regional || "நகராட்சி நிர்வாகம்"
             )}
           </div>
           <div className="text-xl font-bold uppercase">
@@ -99,7 +100,7 @@ const BirthCertificate = ({
         </div>
 
         {/* Legal Text */}
-        <div className="mt-4 text-sm font-bold text-justify">
+        <div className="mt-4 text-sm font-bold text-justify text-center">
           <p className="mb-2">
             {translatedLabels.legalText1?.regional || "(பிறப்பு மற்றும் இறப்பு பதிவு சட்டம் கீழ் வழங்கப்படுகிறது)"}
           </p>
@@ -139,8 +140,8 @@ const BirthCertificate = ({
           <div className="w-1/2 pl-4">
             <p className="mb-4">
               {translatedLabels.sex?.english || "Sex"} / {translatedLabels.sex?.regional || "பாலினம்"}: {
-                translatedData.sex === "MALE" ? `${translatedLabels.male?.english || "MALE"} / ${translatedLabels.male?.regional || "ஆண்"}` :
-                translatedData.sex === "FEMALE" ? `${translatedLabels.female?.english || "FEMALE"} / ${translatedLabels.female?.regional || "பெண்"}` :
+                translatedData.sex === "Male" ? `${translatedLabels.male?.english || "MALE"} / ${translatedLabels.male?.regional || "ஆண்"}` :
+                translatedData.sex === "Female" ? `${translatedLabels.female?.english || "FEMALE"} / ${translatedLabels.female?.regional || "பெண்"}` :
                 translatedData.sex || ""
               }
             </p>
@@ -177,11 +178,15 @@ const BirthCertificate = ({
         {/* Validity and Footer */}
         <div className="text-right mt-6">
           <p className="text-2xl font-bold">
-            {translatedLabels.validity?.english || "Validity"}: {translatedData.validity || "Unknown"}
+            {translatedLabels.validity?.english || "Validity"}: {translatedData.validity || "LIFETIME"}
           </p>
           <p className="mt-6 font-bold">
             {translatedLabels.issuingAuthority?.english || "Issuing Authority"}: {translatedLabels.registrar?.english || "Registrar (Birth & Death)"}
           </p>
+          
+          {translatedData.office_seal_present && (
+            <div></div>
+          )}
         </div>
         
         {isLoading && (
@@ -194,7 +199,7 @@ const BirthCertificate = ({
   );
 };
 
-// Example usage with dynamic labels and data
+// Example usage with actual extracted data
 const BirthCertificateApp = () => {
   const [language, setLanguage] = useState("tamil");
   
@@ -202,8 +207,8 @@ const BirthCertificateApp = () => {
   const defaultLabels = {
     govtTitle: { english: "Government of Tamil Nadu", regional: "தமிழ்நாடு அரசு" },
     deptTitle: { 
-      english: "Department of Municipal Administration and Water Supply", 
-      regional: "நகராட்சி நிர்வாகம் மற்றும் குடிநீர் வழங்கல் துறை" 
+      english: "Department of Municipal Administration", 
+      regional: "நகராட்சி நிர்வாகம்" 
     },
     certificateTitle: { english: "Birth Certificate", regional: "பிறப்பு சான்றிதழ்" },
     legalText1: {
@@ -231,24 +236,24 @@ const BirthCertificateApp = () => {
     registrar: { english: "Registrar (Birth & Death)", regional: "பதிவாளர் (பிறப்பு & இறப்பு)" }
   };
   
-  // Example certificate data 
-  const certificateData = {
-    id: "6a8fa8d4-a151-479f-b779-ad5b2dcb22b1",
-    name: "SENTHIL KUMARAN S",
-    sex: "MALE",
-    date_of_birth: "18/03/2004",
-    place_of_birth: "COIMBATORE",
-    address: "123 MAIN STREET, K.G.CHAVADI, COIMBATORE, TAMIL NADU-641105",
-    permanent_address: "123 MAIN STREET, K.G.CHAVADI, COIMBATORE, TAMIL NADU-641105",
-    father_name: "SUKUMAR K",
-    mother_name: "LAKSHMI S",
-    registration_number: "2016443333",
-    date_of_registration: "20/03/2004",
-    date_of_issue: "19/07/2021",
-    validity: "LIFETIME"
+  // Actual extracted data from your JSON
+  const extractedData = {
+    address: null,
+    certificate: "Birth Certificate",
+    date_of_birth: "23/05/2005",
+    date_of_death: null,
+    date_of_issue: "02/10",
+    date_of_registration: "31/05/2005",
+    father_name: "க.கோ. மனோ கரன்",
+    mother_name: "ம.பேபி",
+    name: "G.M. தினேஷ் கார்த்திகேயன்",
+    office_seal_present: true,
+    place_of_birth: "ஸ்ரீ மருத்துவமனை",
+    registration_number: "511/2005",
+    sex: "Male"
   };
   
-  // Function to translate content via backend
+  // Function to translate content via backend (simplified for demo)
   const handleTranslate = async ({ labels, data, language }) => {
     console.log(`Translating to ${language}...`);
     
@@ -256,14 +261,6 @@ const BirthCertificateApp = () => {
     return new Promise((resolve) => {
       setTimeout(() => {
         // In a real implementation, this would call your backend API
-        // Example API call structure:
-        // const response = await fetch('/api/translate', {
-        //   method: 'POST',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ labels, data, language })
-        // });
-        // const result = await response.json();
-        
         // For demo, we're just returning the same content
         resolve({
           translatedLabels: labels,
@@ -306,7 +303,7 @@ const BirthCertificateApp = () => {
       </div>
       
       <BirthCertificate 
-        data={certificateData} 
+        data={extractedData} 
         labels={defaultLabels}
         language={language}
         onTranslate={handleTranslate}
