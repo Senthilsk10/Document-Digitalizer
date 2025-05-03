@@ -22,6 +22,7 @@ def generate(client, img_path,multi_page=False):
         }
 
         note:The Language of the extraction should be only english don't return in tamil.
+        note:If language other than english found translate it into english.
     """
     if multi_page == True:
         txt = txt.replace('from the Uploaded Document'," and return single json response for all uploaded documents and consider it as single document.")
@@ -70,3 +71,31 @@ gemini_client = genai.Client(api_key="AIzaSyDXy3tst9-99XNuQ7b9F6pQj1OLzY0i0kA")
 # response2 = generate(client, "/workspaces/Document-Digitalizer/backend/static/uploads/documents/c872d19e-fab8-4e5e-b76a-ee6df1fb1c22/page_1_6fb29cb9-7dca-4b13-95c6-61d51674ffb6.jpg")
 # print("Response 1:", response1)
 # print("Response 2:", response2)
+
+
+
+def translate(client,data,lang):
+    model = "gemini-2.0-flash-lite"
+    contents = [
+        types.Content(
+            role="user",
+            parts=[
+                types.Part.from_text(text=f"""{data}, language to translate : {lang}"""),
+            ],
+        ),
+    ]
+    generate_content_config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        system_instruction=[
+            types.Part.from_text(text="""translate the given json data into appropriate language asked for without changing the field name."""),
+        ],
+    )    
+    
+    resp = client.models.generate_content(
+        model="gemini-2.0-flash-lite",
+        contents=contents,
+        config=generate_content_config,
+    )
+    
+
+    return json.loads(resp.candidates[0].content.parts[0].text)

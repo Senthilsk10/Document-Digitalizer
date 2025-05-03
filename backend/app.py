@@ -10,7 +10,7 @@ from datetime import datetime
 # from tasks import make_celery
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from gemini import generate,gemini_client
+from gemini import generate,gemini_client,translate
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -242,6 +242,7 @@ def get_documents_by_aadhar():
 
         result.append({
             "id": idx,
+            "data_id":page.get("id","null"),
             "name": doc.get("name", "Untitled Document"),
             "date": doc.get("uploadDate", datetime.utcnow()).strftime("%Y-%m-%d"),
             "type": extracted.get("certificate", "Unknown"),
@@ -251,6 +252,18 @@ def get_documents_by_aadhar():
 
     return jsonify(result), 200
 
+@app.route('/api/translate',methods=['POST'])
+def translate_api():
+    body = request.json
+    data = body['data']
+    lang = body['lang']
+    print(data,lang)
+    # class gemini here to translate labels and data
+    content = translate(gemini_client,data,lang)
+    # print(type(content))
+    # print(content[0]) change it if the result has not a list 
+    return jsonify({"data":content[0]}),200
+    
 
 # @celery.task(name="tasks.call_gemini") 
 def call_gemini(document_id):

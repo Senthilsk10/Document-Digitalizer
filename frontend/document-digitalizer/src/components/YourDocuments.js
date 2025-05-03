@@ -2,6 +2,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { Download, Globe, Search, FileText } from 'lucide-react';
 import AadharContext from '../AadharContext';
+import { useNavigate } from 'react-router-dom';
+
 
 function YourDocuments() {
   const { aadhar } = useContext(AadharContext);
@@ -9,14 +11,18 @@ function YourDocuments() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     if (!aadhar) return;
 
     const fetchDocuments = async () => {
       try {
-        const response = await fetch(`https://ubiquitous-spork-9pwjjqv9jjj3x67x-5000.app.github.dev/documents?aadhar=${aadhar}`);
+        // https://ubiquitous-spork-9pwjjqv9jjj3x67x-5000.app.github.dev/
+        const response = await fetch(`http://127.0.0.1:5000/documents?aadhar=${aadhar}`);
         const data = await response.json();
         setDocuments(data);
+        // console.log(data);
       } catch (error) {
         console.error('Error fetching documents:', error);
         setDocuments([]); // fallback to empty
@@ -75,7 +81,7 @@ function YourDocuments() {
                     <tbody className="divide-y divide-gray-200">
                       {filteredDocuments.length > 0 ? (
                         filteredDocuments.map(doc => (
-                          <tr key={doc.id} className="hover:bg-gray-50">
+                          <tr key={doc.id} className="hover:bg-gray-50"  onClick={()=>navigate("/sample", { state: { doc: doc.extracted,data_id:doc.data_id } })}>
                             <td className="py-3 px-4">
                               <div className="flex items-center">
                                 <FileText className="text-gray-500 mr-3" size={18} />
