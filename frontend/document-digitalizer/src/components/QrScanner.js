@@ -1,15 +1,20 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useState, useEffect,useRef } from "react";
+import { useParams } from "react-router-dom";
 import BirthCertificate from "./BirthCertificateComp";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-const BirthCertificateApp = () => {
-  const location = useLocation();
-  const [passedData,setPassedData] = useState(location.state?.doc); // document passed from navigate
-  const dataId = location.state?.data_id;
-  const [language, setLanguage] = useState("tamil");
+const BirthCertificatePublic = ({dataId}) => {
+    const {pageId} = useParams();
+    console.log("pageId: ",pageId)
+  const [passedData,setPassedData] = useState(null); // document passed from navigate
   const birthCertificateRef = useRef(null);
+  useEffect(()=>{
+    fetch(`http://127.0.0.1:5000/storage/${pageId}`)
+    .then(response => response.text())
+    .then(result => {setPassedData(JSON.parse(result).extracted);console.log(result);})
+    .catch(error => console.log('error', error));
+  },[])
   const defaultLabels={
     govtTitle: {
       english: "Government of Tamil Nadu",
@@ -63,11 +68,11 @@ const BirthCertificateApp = () => {
     },
   };
   // console.log(location.state?.data_id);
-  
+  const [language, setLanguage] = useState("tamil");
 
   const handleDownloadPDF = async () => {
     const element = birthCertificateRef.current;
-  
+    
     const canvas = await html2canvas(element, {
       width: element.scrollWidth,
       height: element.scrollHeight,
@@ -86,8 +91,6 @@ const BirthCertificateApp = () => {
     pdf.save("download.pdf");
   };
   
-  
-
   function applyTranslation(languageCode) {
     const translations = {
       tamil: {
@@ -351,6 +354,7 @@ const BirthCertificateApp = () => {
     registration_number: passedData?.registration_number || "",
     sex: passedData?.sex || "",
   };
+//   console.log("extractedData:",extractedData);
 
   const handleTranslate = async ({ labels, data, language }) => {
     console.log("labels", labels);
@@ -429,14 +433,13 @@ const BirthCertificateApp = () => {
                         Download as PDF
                     </button>
                 )}
-
       </div>
 
       <div ref={birthCertificateRef}>
                 {passedData && (
                     <BirthCertificate
                     data={extractedData}
-                    dataId={dataId}
+                    dataId={pageId}
                     labels={defaultLabels}
                     language={language}
                     onTranslate={handleTranslate}
@@ -448,4 +451,4 @@ const BirthCertificateApp = () => {
   );
 };
 
-export default BirthCertificateApp;
+export default BirthCertificatePublic;

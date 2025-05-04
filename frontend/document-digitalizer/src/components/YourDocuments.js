@@ -81,7 +81,7 @@ function YourDocuments() {
                     <tbody className="divide-y divide-gray-200">
                       {filteredDocuments.length > 0 ? (
                         filteredDocuments.map(doc => (
-                          <tr key={doc.id} className="hover:bg-gray-50"  onClick={()=>navigate("/sample", { state: { doc: doc.extracted,data_id:doc.data_id } })}>
+                          <tr key={doc.id} className="hover:bg-gray-50"  onClick={()=>navigate("/certificate", { state: { doc: doc.extracted,data_id:doc.data_id } })}>
                             <td className="py-3 px-4">
                               <div className="flex items-center">
                                 <FileText className="text-gray-500 mr-3" size={18} />

@@ -1,3 +1,4 @@
+import './styles.css';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import DocumentDigitizationLandingPage from './pages/LandingPage';
 import DocumentScannerWrapper from './components/wrapper';
@@ -6,19 +7,20 @@ import BirthCertificate from './components/BirthCertificate';
 import Navbar from "./components/NavBar";
 import { useState } from 'react';
 import AadharContext from './AadharContext';
-
+import BirthCertificatePublic from './components/QrScanner';
 function App() {
   const [aadhar, setAadhar] = useState(null);
 
   return (
     <AadharContext.Provider value={{ aadhar, setAadhar }}>
       <Router>
-        <Navbar /> {/* This will be present on all pages */}
+        <Navbar />
         <Routes>
           <Route path="/" element={<DocumentDigitizationLandingPage />} />
           <Route path="/app" element={<DocumentScannerWrapper />} />
           <Route path="/your-documents" element={<YourDocuments />} />
-          <Route path="/sample" element={<BirthCertificate />} />
+          <Route path="/certificate" element={<BirthCertificate />} />
+          <Route path="/storage/:pageId" element={<BirthCertificatePublic />} />
         </Routes>
       </Router>
     </AadharContext.Provider>

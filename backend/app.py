@@ -252,6 +252,26 @@ def get_documents_by_aadhar():
 
     return jsonify(result), 200
 
+
+@app.route('/storage/<string:id>',methods=['GET'])
+def get_document_by_id(id):
+    doc = documents_collection.find_one({ "pages.id": id }, { "pages.$": 1 })
+    if not doc:
+        return jsonify({"message":"could not find documents"}),404
+    page = doc.get("pages", [{}])[0]
+    extracted = page.get("extracted", {})
+    if isinstance(extracted, list) and len(extracted) > 0:
+        extracted = extracted[0]
+    print(doc)
+    return jsonify({
+        "data_id":page.get("id","null"),
+        "name": doc.get("name", "Untitled Document"),
+        "date": doc.get("uploadDate", datetime.utcnow()).strftime("%Y-%m-%d"),
+        "type": extracted.get("certificate", "Unknown"),
+        "status": "Completed" if page.get("processed", False) else "Processing",
+        "extracted": extracted
+    }),200
+
 @app.route('/api/translate',methods=['POST'])
 def translate_api():
     body = request.json
