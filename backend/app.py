@@ -38,7 +38,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
 
 # MongoDB configuration
-client = MongoClient('mongodb://senthil3226w:senthil3226w@ac-mzevuqh-shard-00-00.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-01.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-02.xfxlssz.mongodb.net:27017/?replicaSet=atlas-ca7sk5-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0')
+# client = MongoClient('mongodb://senthil3226w:senthil3226w@ac-mzevuqh-shard-00-00.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-01.xfxlssz.mongodb.net:27017,ac-mzevuqh-shard-00-02.xfxlssz.mongodb.net:27017/?replicaSet=atlas-ca7sk5-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0')
+client = MongoClient('mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.0.0')
 db = client['Document-Info']
 documents_collection = db['Meta']
 
@@ -232,6 +233,7 @@ def get_documents_by_aadhar():
     documents = documents_collection.find({"aadhar": aadhar}).sort("uploadDate", -1)
     result = []
 
+
     for idx, doc in enumerate(documents, start=1):
         page = doc.get("pages", [{}])[0]
         extracted = page.get("extracted", {})
@@ -299,8 +301,9 @@ def call_gemini(document_id):
         pages = document['pages']
         if not document['isMultiPage']:
             for page in pages:
-                path = os.path.abspath(page['filePath'])
-                result = (generate(gemini_client,path[1::]))
+                path = os.path.join(os.getcwd(), page['filePath'].lstrip('/'))
+                print("path - from db", path)
+                result = generate(gemini_client, path)
                 current_timestamp = datetime.now().isoformat()
                 update_list.append({**page,"processed":True,"processedAt":current_timestamp,"extracted":result})
                 documents_collection.update_one(

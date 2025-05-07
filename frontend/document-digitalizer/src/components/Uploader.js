@@ -104,7 +104,7 @@ const DocumentUploader = () => {
       // Send to backend API
       const response = await fetch(
         // "https://ubiquitous-spork-9pwjjqv9jjj3x67x-5000.app.github.dev/api/upload-document",
-        "https://127.0.0.1:5000/api/upload-document",
+        "http://127.0.0.1:5000/api/upload-document",
         {
           method: "POST",
           body: formData,

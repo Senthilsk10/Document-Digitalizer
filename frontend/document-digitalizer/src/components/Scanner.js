@@ -161,8 +161,9 @@ const DocumentScanner = () => {
       });
       console.log(formData);
       // Send to backend API
+      // "https://zxkk943x-5000.inc1.devtunnels.ms/api/upload-document",
       const response = await fetch(
-        "https://zxkk943x-5000.inc1.devtunnels.ms/api/upload-document",
+        "http://127.0.0.1/api/upload-document",
         {
           method: "POST",
           body: formData,
